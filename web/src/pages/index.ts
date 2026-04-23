@@ -1,0 +1,8 @@
+export { default as BuilderPage } from './BuilderPage'
+export { default as DashboardPage } from './DashboardPage'
+export { default as DetailPage } from './DetailPage'
+export { default as ForgotPasswordPage } from './ForgotPasswordPage'
+export { default as InvoicesPage } from './InvoicesPage'
+export { default as PrivacyPage } from './PrivacyPage'
+export { default as SettingsPage } from './SettingsPage'
+export { default as TermsPage } from './TermsPage'

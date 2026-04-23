@@ -1,0 +1,1298 @@
+﻿openapi: 3.1.0
+info:
+  title: SmartInvoice API
+  version: 1.0.0
+  summary: Web-first invoicing API contract for SmartInvoice v1
+  description: |
+    Contract-first API specification for SmartInvoice.
+
+    Scope:
+    - Dashboard summary
+    - Clients CRUD
+    - Invoices CRUD
+    - Invoice lifecycle actions (mark sent, send email, mark paid, void)
+    - Invoice events timeline
+    - Invoice PDF export
+
+    Notes:
+    - Lifecycle statuses in v1: Draft, Sent, Overdue, Paid, Void.
+    - "Viewed" is not a lifecycle status in v1.
+    - This spec is aligned to SmartInvoice/apicontract.md.
+servers:
+  - url: https://api.smartinvoice.com
+    description: Production
+  - url: https://staging-api.smartinvoice.com
+    description: Staging
+tags:
+  - name: Dashboard
+    description: KPI and high-level summary data
+  - name: Clients
+    description: Client management
+  - name: Invoices
+    description: Invoice CRUD and listing
+  - name: Invoice Actions
+    description: State-changing invoice lifecycle operations
+  - name: Invoice Assets
+    description: Timeline and PDF export
+security:
+  - bearerAuth: []
+paths:
+  /v1/dashboard/summary:
+    get:
+      tags: [Dashboard]
+      operationId: getDashboardSummary
+      summary: Get dashboard summary
+      description: Returns high-priority dashboard KPI values.
+      parameters:
+        - $ref: "#/components/parameters/XRequestIdHeader"
+      responses:
+        "200":
+          description: Dashboard summary returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummaryEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/clients:
+    get:
+      tags: [Clients]
+      operationId: listClients
+      summary: List clients
+      description: List clients with cursor pagination and optional search.
+      parameters:
+        - $ref: "#/components/parameters/XRequestIdHeader"
+        - $ref: "#/components/parameters/LimitParam"
+        - $ref: "#/components/parameters/CursorParam"
+        - $ref: "#/components/parameters/ClientSearchParam"
+      responses:
+        "200":
+          description: Clients returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      tags: [Clients]
+      operationId: createClient
+      summary: Create client
+      description: Creates a new client record.
+      parameters:
+        - $ref: "#/components/parameters/XRequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientCreateRequest"
+      responses:
+        "201":
+          description: Client created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/clients/{client_id}:
+    parameters:
+      - $ref: "#/components/parameters/ClientIdParam"
+    get:
+      tags: [Clients]
+      operationId: getClient
+      summary: Get client
+      parameters:
+        - $ref: "#/components/parameters/XRequestIdHeader"
+      responses:
+        "200":
+          description: Client returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    patch:
+      tags: [Clients]
+      operationId: updateClient
+      summary: Update client
+      description: Partial update for client fields.
+      parameters:
+        - $ref: "#/components/parameters/XRequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientPatchRequest"
+      responses:
+        "200":
+          description: Client updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/invoices:
+    get:
+      tags: [Invoices]
+      operationId: listInvoices
+      summary: List invoices
+      description: List invoices with filters and cursor pagination.
+      parameters:
+        - $ref: "#/components/parameters/XRequestIdHeader"
+        - $ref: "#/components/parameters/LimitParam"
+        - $ref: "#/components/parameters/CursorParam"
+        - $ref: "#/components/parameters/InvoiceStatusParam"
+        - $ref: "#/components/parameters/InvoiceClientIdFilterParam"
+        - $ref: "#/components/parameters/InvoiceSortParam"
+      responses:
+        "200":
+          description: Invoices returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      tags: [Invoices]
+      operationId: createInvoice
+      summary: Create invoice
+      description: Creates a Draft invoice and computes totals.
+      parameters:
+        - $ref: "#/components/parameters/XRequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceCreateRequest"
+      responses:
+        "201":
+          description: Invoice created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/invoices/{invoice_id}:
+    parameters:
+      - $ref: "#/components/parameters/InvoiceIdParam"
+    get:
+      tags: [Invoices]
+      operationId: getInvoice
+      summary: Get invoice
+      parameters:
+        - $ref: "#/components/parameters/XRequestIdHeader"
+      responses:
+        "200":
+          description: Invoice returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    patch:
+      tags: [Invoices]
+      operationId: updateInvoice
+      summary: Update invoice
+      description: |
+        Partial update for editable invoice fields.
+
+        Concurrency:
+        - `If-Match` header is required.
+        - Server increments `version` on success.
+        - Server returns `409 VERSION_CONFLICT` on mismatch.
+
+        State constraints:
+        - Draft: editable
+        - Sent: editable (UI warning expected)
+        - Paid: content-changing updates rejected
+        - Void: not editable
+      parameters:
+        - $ref: "#/components/parameters/XRequestIdHeader"
+        - $ref: "#/components/parameters/IfMatchHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoicePatchRequest"
+      responses:
+        "200":
+          description: Invoice updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/invoices/{invoice_id}/mark-sent:
+    post:
+      tags: [Invoice Actions]
+      operationId: markInvoiceSent
+      summary: Mark invoice as sent
+      description: |
+        Manual-share lifecycle transition endpoint.
+
+        Rules:
+        - Allowed from Draft only.
+        - Requires at least one line item and non-empty total.
+
+        Idempotency:
+        - `Idempotency-Key` required.
+        - Same key + same payload within 24h returns original response.
+      parameters:
+        - $ref: "#/components/parameters/InvoiceIdParam"
+        - $ref: "#/components/parameters/XRequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceMarkSentRequest"
+      responses:
+        "200":
+          description: Invoice status set to Sent.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceActionEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/invoices/{invoice_id}/send-email:
+    post:
+      tags: [Invoice Actions]
+      operationId: sendInvoiceEmail
+      summary: Send invoice by email (Premium)
+      description: |
+        Premium email send endpoint with lifecycle transition to Sent.
+
+        Rules:
+        - Allowed from Draft or Sent (resend).
+        - Valid recipient email required.
+
+        Entitlement:
+        - Returns 403 FEATURE_NOT_ENTITLED for non-premium accounts.
+
+        Idempotency:
+        - `Idempotency-Key` required.
+      parameters:
+        - $ref: "#/components/parameters/InvoiceIdParam"
+        - $ref: "#/components/parameters/XRequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceSendEmailRequest"
+      responses:
+        "200":
+          description: Send accepted; invoice status is Sent.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceSendEmailEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/invoices/{invoice_id}/mark-paid:
+    post:
+      tags: [Invoice Actions]
+      operationId: markInvoicePaid
+      summary: Mark invoice as paid
+      description: |
+        Sets invoice status to Paid.
+
+        Rules:
+        - Allowed from Sent or Overdue.
+        - `paid_date` required, cannot be future date in account timezone.
+
+        Idempotency:
+        - `Idempotency-Key` required.
+      parameters:
+        - $ref: "#/components/parameters/InvoiceIdParam"
+        - $ref: "#/components/parameters/XRequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceMarkPaidRequest"
+      responses:
+        "200":
+          description: Invoice status set to Paid.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceActionEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/invoices/{invoice_id}/void:
+    post:
+      tags: [Invoice Actions]
+      operationId: voidInvoice
+      summary: Void invoice
+      description: |
+        Voids an invoice and locks it from active billing flows.
+
+        Rules:
+        - Allowed from Draft, Sent, Overdue.
+        - Not allowed from Paid.
+
+        Idempotency:
+        - `Idempotency-Key` required.
+      parameters:
+        - $ref: "#/components/parameters/InvoiceIdParam"
+        - $ref: "#/components/parameters/XRequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceVoidRequest"
+      responses:
+        "200":
+          description: Invoice status set to Void.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceActionEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/invoices/{invoice_id}/events:
+    get:
+      tags: [Invoice Assets]
+      operationId: listInvoiceEvents
+      summary: List invoice timeline events
+      parameters:
+        - $ref: "#/components/parameters/InvoiceIdParam"
+        - $ref: "#/components/parameters/XRequestIdHeader"
+      responses:
+        "200":
+          description: Timeline events returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceEventsEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/invoices/{invoice_id}/pdf:
+    get:
+      tags: [Invoice Assets]
+      operationId: getInvoicePdf
+      summary: Get invoice PDF
+      description: |
+        Returns a PDF binary stream for invoice export.
+
+        Optional fallback:
+        - JSON response with signed `download_url` may be used by deployment architecture.
+      parameters:
+        - $ref: "#/components/parameters/InvoiceIdParam"
+        - $ref: "#/components/parameters/XRequestIdHeader"
+      responses:
+        "200":
+          description: PDF stream or signed URL payload.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DownloadUrlEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    XRequestIdHeader:
+      name: X-Request-Id
+      in: header
+      required: false
+      schema:
+        type: string
+        maxLength: 128
+      description: Optional correlation id supplied by client.
+    IdempotencyKeyHeader:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Required for idempotent mutation endpoints.
+    IfMatchHeader:
+      name: If-Match
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Current invoice version value for optimistic concurrency.
+    LimitParam:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    CursorParam:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+    ClientSearchParam:
+      name: q
+      in: query
+      required: false
+      schema:
+        type: string
+        maxLength: 120
+      description: Search by client name or email.
+    InvoiceStatusParam:
+      name: status
+      in: query
+      required: false
+      schema:
+        $ref: "#/components/schemas/InvoiceStatus"
+    InvoiceClientIdFilterParam:
+      name: client_id
+      in: query
+      required: false
+      schema:
+        $ref: "#/components/schemas/ClientId"
+    InvoiceSortParam:
+      name: sort
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [created_at_desc, due_date_asc]
+        default: created_at_desc
+    ClientIdParam:
+      name: client_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/ClientId"
+    InvoiceIdParam:
+      name: invoice_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/InvoiceId"
+  responses:
+    Unauthorized:
+      description: Unauthorized.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            unauthorized:
+              value:
+                error:
+                  code: UNAUTHORIZED
+                  message: Access token missing or invalid.
+                request_id: req_01J9EXAMPLE
+    Forbidden:
+      description: Forbidden.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            featureNotEntitled:
+              value:
+                error:
+                  code: FEATURE_NOT_ENTITLED
+                  message: This feature requires a Pro plan.
+                  details:
+                    required_plan: pro
+                request_id: req_01J9EXAMPLE
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            notFound:
+              value:
+                error:
+                  code: NOT_FOUND
+                  message: Resource not found.
+                request_id: req_01J9EXAMPLE
+    ValidationError:
+      description: Validation error.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            validation:
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Request validation failed.
+                  field_errors:
+                    - field: due_date
+                      message: Due date cannot be before issue date.
+                request_id: req_01J9EXAMPLE
+    ConflictError:
+      description: Conflict (status transition, version mismatch, or idempotency mismatch).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            transitionConflict:
+              value:
+                error:
+                  code: CONFLICT_STATUS_TRANSITION
+                  message: Transition from Paid to Sent is not allowed.
+                request_id: req_01J9EXAMPLE
+            versionConflict:
+              value:
+                error:
+                  code: VERSION_CONFLICT
+                  message: Version does not match latest resource version.
+                  details:
+                    latest_version: 7
+                request_id: req_01J9EXAMPLE
+            idempotencyConflict:
+              value:
+                error:
+                  code: IDEMPOTENCY_CONFLICT
+                  message: Idempotency key reuse with different payload.
+                request_id: req_01J9EXAMPLE
+    InternalError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            internal:
+              value:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Something went wrong. Try again.
+                request_id: req_01J9EXAMPLE
+  schemas:
+    InvoiceId:
+      type: string
+      pattern: "^inv_[A-Za-z0-9]+$"
+      examples: [inv_01J8N8M3N7AH6QKX3A3N1Y2K5P]
+    ClientId:
+      type: string
+      pattern: "^cli_[A-Za-z0-9]+$"
+      examples: [cli_01J8N8KQ4C4WQ7ZP5V7S1N2A3B]
+    EventId:
+      type: string
+      pattern: "^evt_[A-Za-z0-9]+$"
+      examples: [evt_01J8N99ABCDEF1234567890]
+    InvoiceStatus:
+      type: string
+      enum: [Draft, Sent, Overdue, Paid, Void]
+    DecimalAmount:
+      type: string
+      pattern: "^[0-9]+(\\.[0-9]{1,2})?$"
+      examples: ["1234.56"]
+    PositiveDecimalQuantity:
+      type: string
+      pattern: "^(0*[1-9][0-9]*|0*[0-9]+\\.[0-9]{1,2})$"
+      examples: ["2.00"]
+    CurrencyCode:
+      type: string
+      pattern: "^[A-Z]{3}$"
+      examples: [USD]
+    DateOnly:
+      type: string
+      format: date
+      examples: ["2026-02-19"]
+    Timestamp:
+      type: string
+      format: date-time
+      examples: ["2026-02-19T17:45:00Z"]
+    Meta:
+      type: object
+      additionalProperties: true
+      default: {}
+    CursorMeta:
+      type: object
+      required: [next_cursor, has_more]
+      properties:
+        next_cursor:
+          type: string
+          nullable: true
+        has_more:
+          type: boolean
+    ErrorResponse:
+      type: object
+      required: [error, request_id]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                - VALIDATION_ERROR
+                - UNAUTHORIZED
+                - FORBIDDEN
+                - FEATURE_NOT_ENTITLED
+                - NOT_FOUND
+                - CONFLICT_STATUS_TRANSITION
+                - VERSION_CONFLICT
+                - IDEMPOTENCY_CONFLICT
+                - RATE_LIMITED
+                - INTERNAL_ERROR
+            message:
+              type: string
+            field_errors:
+              type: array
+              items:
+                $ref: "#/components/schemas/FieldError"
+            details:
+              type: object
+              additionalProperties: true
+        request_id:
+          type: string
+    FieldError:
+      type: object
+      required: [field, message]
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+    Address:
+      type: object
+      properties:
+        line1:
+          type: string
+          maxLength: 120
+        line2:
+          type: string
+          maxLength: 120
+        city:
+          type: string
+          maxLength: 80
+        state:
+          type: string
+          maxLength: 80
+        postal_code:
+          type: string
+          maxLength: 20
+        country:
+          type: string
+          maxLength: 2
+          minLength: 2
+      additionalProperties: false
+    Client:
+      type: object
+      required: [id, name, created_at, updated_at]
+      properties:
+        id:
+          $ref: "#/components/schemas/ClientId"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        email:
+          type: string
+          format: email
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        billing_address:
+          allOf:
+            - $ref: "#/components/schemas/Address"
+          nullable: true
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+        updated_at:
+          $ref: "#/components/schemas/Timestamp"
+    ClientSummary:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          $ref: "#/components/schemas/ClientId"
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+          nullable: true
+    ClientCreateRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        billing_address:
+          $ref: "#/components/schemas/Address"
+      additionalProperties: false
+    ClientPatchRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        email:
+          type: string
+          format: email
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        billing_address:
+          allOf:
+            - $ref: "#/components/schemas/Address"
+          nullable: true
+      additionalProperties: false
+    InvoiceLineItemCreate:
+      type: object
+      required: [description, quantity, unit_price]
+      properties:
+        description:
+          type: string
+          minLength: 1
+          maxLength: 500
+        quantity:
+          $ref: "#/components/schemas/PositiveDecimalQuantity"
+        unit_price:
+          $ref: "#/components/schemas/DecimalAmount"
+      additionalProperties: false
+    InvoiceLineItem:
+      allOf:
+        - $ref: "#/components/schemas/InvoiceLineItemCreate"
+        - type: object
+          required: [id, amount]
+          properties:
+            id:
+              type: string
+              pattern: "^ili_[A-Za-z0-9]+$"
+            amount:
+              $ref: "#/components/schemas/DecimalAmount"
+    Tax:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 60
+        rate_percent:
+          $ref: "#/components/schemas/DecimalAmount"
+        amount:
+          $ref: "#/components/schemas/DecimalAmount"
+      additionalProperties: false
+    TaxInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 60
+        rate_percent:
+          $ref: "#/components/schemas/DecimalAmount"
+      additionalProperties: false
+    Discount:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [percent, fixed]
+        value:
+          $ref: "#/components/schemas/DecimalAmount"
+        amount:
+          $ref: "#/components/schemas/DecimalAmount"
+      additionalProperties: false
+    DiscountInput:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [percent, fixed]
+        value:
+          $ref: "#/components/schemas/DecimalAmount"
+      additionalProperties: false
+    InvoiceTotals:
+      type: object
+      required: [subtotal, tax, discount, total]
+      properties:
+        subtotal:
+          $ref: "#/components/schemas/DecimalAmount"
+        tax:
+          $ref: "#/components/schemas/DecimalAmount"
+        discount:
+          $ref: "#/components/schemas/DecimalAmount"
+        total:
+          $ref: "#/components/schemas/DecimalAmount"
+      additionalProperties: false
+    Invoice:
+      type: object
+      required:
+        - id
+        - number
+        - client_id
+        - status
+        - issue_date
+        - due_date
+        - currency
+        - line_items
+        - totals
+        - version
+        - created_at
+        - updated_at
+      properties:
+        id:
+          $ref: "#/components/schemas/InvoiceId"
+        number:
+          type: string
+          maxLength: 64
+        client_id:
+          $ref: "#/components/schemas/ClientId"
+        status:
+          $ref: "#/components/schemas/InvoiceStatus"
+        issue_date:
+          $ref: "#/components/schemas/DateOnly"
+        due_date:
+          $ref: "#/components/schemas/DateOnly"
+        currency:
+          $ref: "#/components/schemas/CurrencyCode"
+        line_items:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceLineItem"
+        tax:
+          $ref: "#/components/schemas/Tax"
+        discount:
+          $ref: "#/components/schemas/Discount"
+        totals:
+          $ref: "#/components/schemas/InvoiceTotals"
+        notes:
+          type: string
+          maxLength: 2000
+          default: ""
+        sent_at:
+          allOf:
+            - $ref: "#/components/schemas/Timestamp"
+          nullable: true
+        paid_at:
+          allOf:
+            - $ref: "#/components/schemas/Timestamp"
+          nullable: true
+        voided_at:
+          allOf:
+            - $ref: "#/components/schemas/Timestamp"
+          nullable: true
+        version:
+          type: integer
+          minimum: 1
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+        updated_at:
+          $ref: "#/components/schemas/Timestamp"
+    InvoiceListItem:
+      type: object
+      required: [id, number, client_id, status, due_date, totals, updated_at]
+      properties:
+        id:
+          $ref: "#/components/schemas/InvoiceId"
+        number:
+          type: string
+        client_id:
+          $ref: "#/components/schemas/ClientId"
+        status:
+          $ref: "#/components/schemas/InvoiceStatus"
+        due_date:
+          $ref: "#/components/schemas/DateOnly"
+        totals:
+          type: object
+          required: [total, currency]
+          properties:
+            total:
+              $ref: "#/components/schemas/DecimalAmount"
+            currency:
+              $ref: "#/components/schemas/CurrencyCode"
+        updated_at:
+          $ref: "#/components/schemas/Timestamp"
+    InvoiceCreateRequest:
+      type: object
+      required: [client_id, issue_date, due_date, currency, line_items]
+      properties:
+        client_id:
+          $ref: "#/components/schemas/ClientId"
+        issue_date:
+          $ref: "#/components/schemas/DateOnly"
+        due_date:
+          $ref: "#/components/schemas/DateOnly"
+        currency:
+          $ref: "#/components/schemas/CurrencyCode"
+        line_items:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/InvoiceLineItemCreate"
+        tax:
+          $ref: "#/components/schemas/TaxInput"
+        discount:
+          $ref: "#/components/schemas/DiscountInput"
+        notes:
+          type: string
+          maxLength: 2000
+      additionalProperties: false
+      description: |
+        Validation:
+        - due_date must be greater than or equal to issue_date
+        - one currency per invoice
+    InvoicePatchRequest:
+      type: object
+      properties:
+        client_id:
+          $ref: "#/components/schemas/ClientId"
+        issue_date:
+          $ref: "#/components/schemas/DateOnly"
+        due_date:
+          $ref: "#/components/schemas/DateOnly"
+        line_items:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/InvoiceLineItemCreate"
+        tax:
+          $ref: "#/components/schemas/TaxInput"
+        discount:
+          $ref: "#/components/schemas/DiscountInput"
+        notes:
+          type: string
+          maxLength: 2000
+      additionalProperties: false
+      description: Invoice currency is immutable after create.
+    InvoiceMarkSentRequest:
+      type: object
+      required: [sent_date]
+      properties:
+        sent_date:
+          $ref: "#/components/schemas/DateOnly"
+        note:
+          type: string
+          maxLength: 500
+      additionalProperties: false
+    InvoiceSendEmailRequest:
+      type: object
+      required: [to, subject, message, attach_pdf, send_copy_to_me]
+      properties:
+        to:
+          type: string
+          format: email
+        subject:
+          type: string
+          minLength: 1
+          maxLength: 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        attach_pdf:
+          type: boolean
+        send_copy_to_me:
+          type: boolean
+      additionalProperties: false
+    InvoiceMarkPaidRequest:
+      type: object
+      required: [paid_date]
+      properties:
+        paid_date:
+          $ref: "#/components/schemas/DateOnly"
+        payment_method:
+          type: string
+          maxLength: 60
+        reference_note:
+          type: string
+          maxLength: 300
+      additionalProperties: false
+    InvoiceVoidRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 300
+      additionalProperties: false
+    InvoiceActionResult:
+      type: object
+      required: [id, status, version]
+      properties:
+        id:
+          $ref: "#/components/schemas/InvoiceId"
+        status:
+          $ref: "#/components/schemas/InvoiceStatus"
+        sent_at:
+          allOf:
+            - $ref: "#/components/schemas/Timestamp"
+          nullable: true
+        paid_at:
+          allOf:
+            - $ref: "#/components/schemas/Timestamp"
+          nullable: true
+        voided_at:
+          allOf:
+            - $ref: "#/components/schemas/Timestamp"
+          nullable: true
+        version:
+          type: integer
+          minimum: 1
+    DeliveryInfo:
+      type: object
+      required: [provider_message_id, state]
+      properties:
+        provider_message_id:
+          type: string
+        state:
+          type: string
+          enum: [queued, sent, failed]
+    InvoiceSendEmailResult:
+      allOf:
+        - $ref: "#/components/schemas/InvoiceActionResult"
+        - type: object
+          required: [delivery]
+          properties:
+            delivery:
+              $ref: "#/components/schemas/DeliveryInfo"
+    InvoiceEvent:
+      type: object
+      required: [id, type, occurred_at, actor]
+      properties:
+        id:
+          $ref: "#/components/schemas/EventId"
+        type:
+          type: string
+          enum:
+            - invoice_created
+            - invoice_updated
+            - invoice_marked_sent
+            - invoice_sent_email
+            - invoice_marked_paid
+            - invoice_voided
+        occurred_at:
+          $ref: "#/components/schemas/Timestamp"
+        actor:
+          type: string
+    DashboardSummary:
+      type: object
+      required: [total_unpaid, overdue_count, paid_this_month, draft_count]
+      properties:
+        total_unpaid:
+          type: object
+          required: [currency, amount]
+          properties:
+            currency:
+              $ref: "#/components/schemas/CurrencyCode"
+            amount:
+              $ref: "#/components/schemas/DecimalAmount"
+        overdue_count:
+          type: integer
+          minimum: 0
+        paid_this_month:
+          type: object
+          required: [currency, amount]
+          properties:
+            currency:
+              $ref: "#/components/schemas/CurrencyCode"
+            amount:
+              $ref: "#/components/schemas/DecimalAmount"
+        draft_count:
+          type: integer
+          minimum: 0
+    DownloadUrlData:
+      type: object
+      required: [download_url]
+      properties:
+        download_url:
+          type: string
+          format: uri
+    DashboardSummaryEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/DashboardSummary"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    ClientEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/Client"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    ClientListEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClientSummary"
+        meta:
+          $ref: "#/components/schemas/CursorMeta"
+    InvoiceEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/Invoice"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    InvoiceListEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceListItem"
+        meta:
+          $ref: "#/components/schemas/CursorMeta"
+    InvoiceActionEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/InvoiceActionResult"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    InvoiceSendEmailEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/InvoiceSendEmailResult"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    InvoiceEventsEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceEvent"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    DownloadUrlEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/DownloadUrlData"
+        meta:
+          $ref: "#/components/schemas/Meta"
