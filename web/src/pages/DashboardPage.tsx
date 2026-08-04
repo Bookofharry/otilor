@@ -4,10 +4,13 @@ import type { DashboardMetrics, Invoice } from '../app/types'
 import { useInvoiceAnalytics } from '../context/useAnalytics'
 import EmptyState from '../components/ui/EmptyState'
 
+import { DashboardSkeleton } from '../components/ui/PageSkeletons'
+
 interface DashboardPageProps {
   metrics: DashboardMetrics
   sortedInvoices: Invoice[]
   draftCount: number
+  isLoading?: boolean
   onAddNew: () => void
   onViewAll: () => void
   onViewFiltered: (filter: 'overdue' | 'draft') => void
@@ -18,6 +21,7 @@ function DashboardPage({
   metrics,
   sortedInvoices,
   draftCount,
+  isLoading = false,
   onAddNew,
   onViewAll,
   onViewFiltered,
@@ -29,6 +33,10 @@ function DashboardPage({
   useEffect(() => {
     invoiceAnalytics.trackDashboardViewed()
   }, [invoiceAnalytics])
+
+  if (isLoading) {
+    return <DashboardSkeleton />
+  }
 
   const handleAddNew = () => {
     invoiceAnalytics.trackCreateInvoice('dashboard')

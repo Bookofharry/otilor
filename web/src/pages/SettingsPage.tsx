@@ -4,12 +4,19 @@ import { resolveInvoiceIssuerContactLines, resolveInvoiceIssuerProfile } from '.
 import { persistAuthUserProfile, readStoredAuthUserProfile } from '../app/userProfile'
 import { useApp } from '../context'
 
-function SettingsPage() {
+import { SettingsSkeleton } from '../components/ui/PageSkeletons'
+
+/* eslint-disable react-hooks/set-state-in-effect */
+
+interface SettingsPageProps {
+  isLoading?: boolean
+}
+
+function SettingsPage({ isLoading = false }: SettingsPageProps) {
   const { businessSettings, toast, isPro, setIsPro, mode } = useApp()
   const [draft, setDraft] = useState<BusinessSettings>(businessSettings.businessSettings)
   const [accountName, setAccountName] = useState(() => readStoredAuthUserProfile()?.name ?? '')
   const authUser = readStoredAuthUserProfile()
-  const authSnapshot = `${authUser?.name ?? ''}:${authUser?.email ?? ''}`
 
   useEffect(() => {
     setDraft(businessSettings.businessSettings)
@@ -17,7 +24,7 @@ function SettingsPage() {
 
   useEffect(() => {
     setAccountName(authUser?.name ?? '')
-  }, [authSnapshot])
+  }, [authUser?.name])
 
   const patchDraft = (patch: Partial<BusinessSettings>) => {
     setDraft((current) => ({ ...current, ...patch }))
@@ -43,6 +50,10 @@ function SettingsPage() {
     () => resolveInvoiceIssuerContactLines(invoiceSenderPreview),
     [invoiceSenderPreview],
   )
+
+  if (isLoading) {
+    return <SettingsSkeleton />
+  }
 
   const handleSave = () => {
     const savedProfile = persistAuthUserProfile({

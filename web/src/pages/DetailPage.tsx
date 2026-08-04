@@ -5,9 +5,12 @@ import InvoicePreview from '../modules/invoices/components/InvoicePreview'
 import Timeline from '../modules/invoices/components/Timeline'
 import { useInvoiceAnalytics } from '../context/useAnalytics'
 
+import { DetailSkeleton } from '../components/ui/PageSkeletons'
+
 interface DetailPageProps {
   invoice: Invoice | null
   actionBusy: boolean
+  isLoading?: boolean
   onCreateInvoice: () => void
   onDownload: (invoice: Invoice) => void
   onEdit: (invoice: Invoice) => void
@@ -20,6 +23,7 @@ interface DetailPageProps {
 function DetailPage({
   invoice,
   actionBusy,
+  isLoading = false,
   onCreateInvoice,
   onDownload,
   onEdit,
@@ -30,12 +34,29 @@ function DetailPage({
 }: DetailPageProps) {
   const invoiceAnalytics = useInvoiceAnalytics()
 
-  // Track detail viewed when invoice changes
   useEffect(() => {
     if (invoice) {
       invoiceAnalytics.trackDetailViewed(invoice.id, invoice.status)
     }
   }, [invoice?.id, invoiceAnalytics])
+
+  if (isLoading) {
+    return <DetailSkeleton />
+  }
+
+  if (!invoice) {
+    return (
+      <section className="screen detail-screen">
+        <article className="panel empty-state">
+          <h3>No invoice selected</h3>
+          <p>Create or pick an invoice from the dashboard.</p>
+          <button className="primary-button" type="button" onClick={onCreateInvoice}>
+            Create Invoice
+          </button>
+        </article>
+      </section>
+    )
+  }
 
   const handleDownload = () => {
     if (invoice) {
@@ -48,7 +69,6 @@ function DetailPage({
     if (invoice) {
       invoiceAnalytics.trackMarkSent(invoice.id)
       onMarkSent(invoice)
-      // Note: Success event should be tracked after API call succeeds
     }
   }
 
@@ -58,25 +78,6 @@ function DetailPage({
       invoiceAnalytics.trackMarkPaid(invoice.id, total)
       onMarkPaid(invoice)
     }
-  }
-
-  const handleCreateInvoice = () => {
-    invoiceAnalytics.trackCreateInvoice('detail_page_empty_state')
-    onCreateInvoice()
-  }
-
-  if (!invoice) {
-    return (
-      <section className="screen detail-screen">
-        <article className="panel empty-state">
-          <h3>No invoice selected</h3>
-          <p>Create or pick an invoice from the dashboard.</p>
-          <button className="primary-button" type="button" onClick={handleCreateInvoice}>
-            Create Invoice
-          </button>
-        </article>
-      </section>
-    )
   }
 
   const selectedStatus = withOverdueStatus(invoice)

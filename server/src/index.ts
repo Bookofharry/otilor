@@ -5,6 +5,7 @@ import morgan from 'morgan';
 import jwt from 'jsonwebtoken';
 import { randomBytes } from 'node:crypto';
 import { createInvoicePdfBuffer } from './pdf';
+import { sendInvoiceEmail } from './email';
 
 type InvoiceStatus = 'Draft' | 'Sent' | 'Overdue' | 'Paid' | 'Void';
 type StoredInvoiceStatus = Exclude<InvoiceStatus, 'Overdue'>;
@@ -865,6 +866,7 @@ const beginIdempotentRequest = (req: Request, res: Response): { key: string; pay
     throw new AppError(409, 'IDEMPOTENCY_CONFLICT', 'Idempotency key reuse with different payload.');
   }
 
+  res.set('Idempotency-Replayed', 'true');
   res.status(existing.status).json(existing.body);
   return null;
 };
@@ -1164,67 +1166,86 @@ app.post('/v1/invoices/:invoiceId/mark-sent', (req, res) => {
   res.status(200).json(body);
 });
 
-app.post('/v1/invoices/:invoiceId/send-email', (req, res) => {
-  const context = beginIdempotentRequest(req, res);
-  if (!context) return;
+app.post('/v1/invoices/:invoiceId/send-email', async (req, res, next) => {
+  try {
+    const context = beginIdempotentRequest(req, res);
+    if (!context) return;
 
-  const invoice = requireInvoice(req.params.invoiceId);
-  const effectiveStatus = effectiveStatusOf(invoice);
-  if (effectiveStatus !== 'Draft' && effectiveStatus !== 'Sent' && effectiveStatus !== 'Overdue') {
-    throw new AppError(409, 'CONFLICT_STATUS_TRANSITION', `Transition from ${effectiveStatus} to Sent is not allowed.`);
-  }
+    const invoice = requireInvoice(req.params.invoiceId);
+    const effectiveStatus = effectiveStatusOf(invoice);
+    if (effectiveStatus !== 'Draft' && effectiveStatus !== 'Sent' && effectiveStatus !== 'Overdue') {
+      throw new AppError(409, 'CONFLICT_STATUS_TRANSITION', `Transition from ${effectiveStatus} to Sent is not allowed.`);
+    }
 
-  const payload = req.body as SendEmailInput;
-  const to = cleanString(payload.to);
-  const subject = cleanString(payload.subject);
-  const message = cleanString(payload.message);
-  const fieldErrors: FieldError[] = [];
+    const payload = req.body as SendEmailInput;
+    const to = cleanString(payload.to);
+    const subject = cleanString(payload.subject);
+    const message = cleanString(payload.message);
+    const fieldErrors: FieldError[] = [];
 
-  if (!to || !EMAIL_PATTERN.test(to)) {
-    fieldErrors.push({ field: 'to', message: 'Recipient email must be valid.' });
-  }
-  if (!subject) {
-    fieldErrors.push({ field: 'subject', message: 'Subject is required.' });
-  }
-  if (!message) {
-    fieldErrors.push({ field: 'message', message: 'Message is required.' });
-  }
-  if (typeof payload.attach_pdf !== 'boolean') {
-    fieldErrors.push({ field: 'attach_pdf', message: 'attach_pdf must be a boolean.' });
-  }
-  if (typeof payload.send_copy_to_me !== 'boolean') {
-    fieldErrors.push({ field: 'send_copy_to_me', message: 'send_copy_to_me must be a boolean.' });
-  }
-  if (fieldErrors.length > 0) {
-    throw new AppError(422, 'VALIDATION_ERROR', 'Request validation failed.', { fieldErrors });
-  }
+    if (!to || !EMAIL_PATTERN.test(to)) {
+      fieldErrors.push({ field: 'to', message: 'Recipient email must be valid.' });
+    }
+    if (!subject) {
+      fieldErrors.push({ field: 'subject', message: 'Subject is required.' });
+    }
+    if (!message) {
+      fieldErrors.push({ field: 'message', message: 'Message is required.' });
+    }
+    if (typeof payload.attach_pdf !== 'boolean') {
+      fieldErrors.push({ field: 'attach_pdf', message: 'attach_pdf must be a boolean.' });
+    }
+    const sendCopyToMe = payload.send_copy_to_me as boolean | undefined
+    if (typeof sendCopyToMe !== 'boolean') {
+      fieldErrors.push({ field: 'send_copy_to_me', message: 'send_copy_to_me must be a boolean.' });
+    }
+    if (fieldErrors.length > 0) {
+      throw new AppError(422, 'VALIDATION_ERROR', 'Request validation failed.', { fieldErrors });
+    }
 
-  ensureInvoiceCanSend(invoice);
+    ensureInvoiceCanSend(invoice);
 
-  const timestamp = nowIso();
-  const updatedInvoice: InvoiceRecord = {
-    ...invoice,
-    status: 'Sent',
-    sent_at: timestamp,
-    version: invoice.version + 1,
-    updated_at: timestamp,
-  };
-  invoices.set(invoice.id, updatedInvoice);
-  appendInvoiceEvent(invoice.id, 'invoice_sent_email', timestamp);
+    // Call Resend email service
+    const client = requireClient(invoice.client_id)
+    const totalCalc = invoice.line_items.reduce((acc, item) => acc + Number(item.unit_price) * Number(item.quantity), 0)
+    const deliveryResult = await sendInvoiceEmail({
+      to,
+      subject,
+      message,
+      invoiceNumber: invoice.number,
+      clientName: client.name,
+      amount: formatAmount(totalCalc / 100),
+      dueDate: invoice.due_date,
+      sendCopyToMe,
+    })
 
-  const body = {
-    data: {
-      ...invoiceActionResult(updatedInvoice),
-      delivery: {
-        provider_message_id: generateId('msg'),
-        state: 'queued',
+    const timestamp = nowIso();
+    const updatedInvoice: InvoiceRecord = {
+      ...invoice,
+      status: 'Sent',
+      sent_at: timestamp,
+      version: invoice.version + 1,
+      updated_at: timestamp,
+    };
+    invoices.set(invoice.id, updatedInvoice);
+    appendInvoiceEvent(invoice.id, 'invoice_sent_email', timestamp);
+
+    const body = {
+      data: {
+        ...invoiceActionResult(updatedInvoice),
+        delivery: {
+          provider_message_id: deliveryResult.provider_message_id,
+          state: deliveryResult.state,
+        },
       },
-    },
-    meta: {},
-  } satisfies ApiEnvelope<Record<string, unknown>>;
+      meta: {},
+    } satisfies ApiEnvelope<Record<string, unknown>>;
 
-  completeIdempotentRequest(context, 200, body);
-  res.status(200).json(body);
+    completeIdempotentRequest(context, 200, body);
+    res.status(200).json(body);
+  } catch (err) {
+    next(err);
+  }
 });
 
 app.post('/v1/invoices/:invoiceId/mark-paid', (req, res) => {
@@ -1347,6 +1368,10 @@ app.use((error: unknown, _req: Request, res: Response, next: NextFunction) => {
   sendError(res, new AppError(500, 'INTERNAL_ERROR', 'Something went wrong. Try again.'));
 });
 
-app.listen(port, () => {
-  console.log(`SmartInvoice server started on http://localhost:${port}`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(port, () => {
+    console.log(`SmartInvoice server started on http://localhost:${port}`);
+  });
+}
+
+export default app;

@@ -78,7 +78,7 @@ function SignUpPage({
       }
 
       onSignUp(name, email)
-    } catch (err) {
+    } catch {
       setError('Network error. Please try again.')
     } finally {
       setIsLoading(false)

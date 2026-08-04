@@ -1,8 +1,11 @@
+import type { CSSProperties } from 'react'
+
 interface SkeletonProps {
   variant?: 'text' | 'title' | 'avatar' | 'card' | 'table-row'
   width?: string
   height?: string
   className?: string
+  style?: CSSProperties
 }
 
 const Skeleton = ({
@@ -10,6 +13,7 @@ const Skeleton = ({
   width,
   height,
   className = '',
+  style,
 }: SkeletonProps) => {
   const variantClasses = {
     text: 'skeleton--text',
@@ -19,14 +23,14 @@ const Skeleton = ({
     'table-row': 'skeleton--table-row',
   }
 
-  const style: React.CSSProperties = {}
-  if (width) style.width = width
-  if (height) style.height = height
+  const mergedStyle: CSSProperties = { ...style }
+  if (width) mergedStyle.width = width
+  if (height) mergedStyle.height = height
 
   return (
     <div
       className={`skeleton ${variantClasses[variant]} ${className}`.trim()}
-      style={style}
+      style={mergedStyle}
       aria-hidden="true"
     />
   )

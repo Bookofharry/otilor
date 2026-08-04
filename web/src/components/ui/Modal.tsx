@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 
 interface ModalProps {
   isOpen: boolean
@@ -12,60 +13,17 @@ interface ModalProps {
 
 const Modal = ({ isOpen, onClose, title, children, footer, size = 'md' }: ModalProps) => {
   const overlayRef = useRef<HTMLDivElement>(null)
-  const contentRef = useRef<HTMLDivElement>(null)
+  const focusTrapRef = useFocusTrap<HTMLDivElement>(isOpen, onClose)
 
   useEffect(() => {
     if (!isOpen) return
-
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
 
     const handleClickOutside = (e: MouseEvent) => {
       if (e.target === overlayRef.current) onClose()
     }
 
-    // Focus trap
-    const content = contentRef.current
-    if (content) {
-      const focusableElements = content.querySelectorAll<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-      )
-      const firstElement = focusableElements[0]
-      const lastElement = focusableElements[focusableElements.length - 1]
-
-      firstElement?.focus()
-
-      const handleTabKey = (e: KeyboardEvent) => {
-        if (e.key !== 'Tab') return
-
-        if (e.shiftKey && document.activeElement === firstElement) {
-          e.preventDefault()
-          lastElement?.focus()
-        } else if (!e.shiftKey && document.activeElement === lastElement) {
-          e.preventDefault()
-          firstElement?.focus()
-        }
-      }
-
-      document.addEventListener('keydown', handleEscape)
-      document.addEventListener('keydown', handleTabKey)
-      document.addEventListener('mousedown', handleClickOutside)
-
-      return () => {
-        document.removeEventListener('keydown', handleEscape)
-        document.removeEventListener('keydown', handleTabKey)
-        document.removeEventListener('mousedown', handleClickOutside)
-      }
-    }
-
-    document.addEventListener('keydown', handleEscape)
     document.addEventListener('mousedown', handleClickOutside)
-
-    return () => {
-      document.removeEventListener('keydown', handleEscape)
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isOpen, onClose])
 
   if (!isOpen) return null
@@ -86,7 +44,7 @@ const Modal = ({ isOpen, onClose, title, children, footer, size = 'md' }: ModalP
     >
       <div className="overlay-backdrop" />
       <div
-        ref={contentRef}
+        ref={focusTrapRef}
         className={`send-panel ${sizeClasses[size]}`}
         style={{ width: '100%' }}
       >

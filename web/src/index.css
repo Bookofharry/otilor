@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Otilor Main Stylesheet
  * Imports all design system files
  */
@@ -203,9 +203,9 @@ ol {
   --topbar-height: 64px;
   --max-content-width: 1400px;
 
-  /* Breakpoints */
+  /* Breakpoints: 6-breakpoint responsive system */
   --bp-xs: 320px;
-  --bp-sm: 375px;
+  --bp-sm: 480px;
   --bp-md: 768px;
   --bp-lg: 1024px;
   --bp-xl: 1280px;
@@ -217,11 +217,59 @@ ol {
 }
 
 /* ========================================
-   9. Screen Layouts
+   9. 6-Breakpoint System & Responsive Utilities
    ======================================== */
+.responsive-grid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+@media (min-width: 480px) {
+  .sm\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (min-width: 768px) {
+  .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .md\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1024px) {
+  .lg\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .lg\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1280px) {
+  .xl\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .xl\:grid-cols-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+
+/* Responsive Visibility Helpers */
+.hide-xs { display: none !important; }
+@media (min-width: 480px) { .hide-xs { display: initial !important; } }
+
+.show-md-up { display: none !important; }
+@media (min-width: 768px) { .show-md-up { display: block !important; } }
+
+.show-lg-up { display: none !important; }
+@media (min-width: 1024px) { .show-lg-up { display: block !important; } }
+
+.hide-mobile { display: block; }
+@media (max-width: 767px) { .hide-mobile { display: none !important; } }
+
+.show-mobile-only { display: none; }
+@media (max-width: 767px) { .show-mobile-only { display: block !important; } }
+
 .screen {
   max-width: var(--max-content-width);
   margin: 0 auto;
+  padding: 0 var(--space-3);
+}
+
+@media (min-width: 768px) {
+  .screen {
+    padding: 0 var(--space-6);
+  }
 }
 
 .screen-header {
@@ -240,7 +288,7 @@ ol {
   color: var(--color-text-secondary);
 }
 
-@media (min-width: 640px) {
+@media (min-width: 768px) {
   .screen-title {
     font-size: var(--text-3xl);
   }
@@ -7314,11 +7362,52 @@ ol {
   gap: 1rem;
 }
 
-.add-client-form h4 {
-  font-size: 1rem;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
+/* ========================================
+   Skeleton Loader Styles
+   ======================================== */
+.skeleton {
+  background: linear-gradient(90deg, var(--color-neutral-100) 25%, var(--color-neutral-200) 50%, var(--color-neutral-100) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-md);
+  display: block;
 }
+
+.skeleton--text {
+  height: 1rem;
+  width: 100%;
+  margin-bottom: var(--space-2);
+}
+
+.skeleton--title {
+  height: 1.75rem;
+  width: 60%;
+  margin-bottom: var(--space-3);
+}
+
+.skeleton--avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+}
+
+.skeleton--card {
+  height: 140px;
+  width: 100%;
+  border-radius: var(--radius-xl);
+}
+
+.skeleton--table-row {
+  height: 52px;
+  width: 100%;
+  margin-bottom: var(--space-2);
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 
 /* ========================================
    Timeline Styles

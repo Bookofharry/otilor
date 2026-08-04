@@ -1,19 +1,20 @@
 import { useState, useEffect } from 'react'
 import BuilderPage from './BuilderPage'
 import BuilderMobilePage from './BuilderMobilePage'
+import type { BuilderForm, ApiClientSummary, Invoice, LineItem } from '../app/types'
 
 interface ResponsiveBuilderProps {
   editingInvoiceId: string | null
   editNotice?: string | null
-  builder: any
-  clients: any[]
+  builder: BuilderForm
+  clients: ApiClientSummary[]
   builderError: string | null
   actionBusy: boolean
-  previewInvoice: any
+  previewInvoice: Invoice
   onSelectExistingClient: (clientId: string) => void
-  onPatchBuilder: (patch: any) => void
+  onPatchBuilder: (patch: Partial<BuilderForm>) => void
   onAddItem: () => void
-  onUpdateItem: (itemId: string, patch: any) => void
+  onUpdateItem: (itemId: string, patch: Partial<LineItem>) => void
   onRemoveItem: (itemId: string) => void
   onCancel: () => void
   onSave: () => void

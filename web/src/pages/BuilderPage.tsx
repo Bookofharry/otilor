@@ -4,6 +4,8 @@ import type { BuilderForm, Invoice, LineItem } from '../app/types'
 import InvoicePreview from '../modules/invoices/components/InvoicePreview'
 import { useInvoiceAnalytics, useClientAnalytics } from '../context/useAnalytics'
 
+import { BuilderSkeleton } from '../components/ui/PageSkeletons'
+
 interface BuilderPageProps {
   editingInvoiceId: string | null
   editNotice?: string | null
@@ -11,6 +13,7 @@ interface BuilderPageProps {
   clients: ApiClientSummary[]
   builderError: string | null
   actionBusy: boolean
+  isLoading?: boolean
   previewInvoice: Invoice
   onSelectExistingClient: (clientId: string) => void
   onPatchBuilder: (patch: Partial<BuilderForm>) => void
@@ -28,6 +31,7 @@ function BuilderPage({
   clients,
   builderError,
   actionBusy,
+  isLoading = false,
   previewInvoice,
   onSelectExistingClient,
   onPatchBuilder,
@@ -40,10 +44,13 @@ function BuilderPage({
   const invoiceAnalytics = useInvoiceAnalytics()
   const clientAnalytics = useClientAnalytics()
 
-  // Track builder opened
   useEffect(() => {
     invoiceAnalytics.trackBuilderOpened(editingInvoiceId || undefined)
   }, [editingInvoiceId, invoiceAnalytics])
+
+  if (isLoading) {
+    return <BuilderSkeleton />
+  }
 
   const handleSelectClient = (clientId: string) => {
     const client = clients.find(c => c.id === clientId)

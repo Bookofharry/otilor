@@ -2,13 +2,16 @@ import { useState, useMemo } from 'react'
 import type { ApiClientSummary } from '../api'
 import { useClientAnalytics } from '../context/useAnalytics'
 
+import { ClientsSkeleton } from '../components/ui/PageSkeletons'
+
 interface ClientsPageProps {
   clients: ApiClientSummary[]
+  isLoading?: boolean
   onSelectClient: (clientId: string) => void
   onCreateClient: (name: string, email: string) => Promise<void>
 }
 
-function ClientsPage({ clients, onSelectClient, onCreateClient }: ClientsPageProps) {
+function ClientsPage({ clients, isLoading = false, onSelectClient, onCreateClient }: ClientsPageProps) {
   const clientAnalytics = useClientAnalytics()
   const [searchQuery, setSearchQuery] = useState('')
   const [showAddForm, setShowAddForm] = useState(false)
@@ -17,7 +20,6 @@ function ClientsPage({ clients, onSelectClient, onCreateClient }: ClientsPagePro
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
-  // Filter clients based on search
   const filteredClients = useMemo(() => {
     if (!searchQuery.trim()) return clients
     const query = searchQuery.toLowerCase()
@@ -27,6 +29,10 @@ function ClientsPage({ clients, onSelectClient, onCreateClient }: ClientsPagePro
         client.email?.toLowerCase().includes(query)
     )
   }, [clients, searchQuery])
+
+  if (isLoading) {
+    return <ClientsSkeleton />
+  }
 
   const handleSelectClient = (clientId: string) => {
     const client = clients.find((c) => c.id === clientId)

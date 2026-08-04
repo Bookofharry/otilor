@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import Button from './Button'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 
 interface ConfirmDialogProps {
   isOpen: boolean
@@ -26,29 +27,18 @@ const ConfirmDialog = ({
   isLoading = false,
 }: ConfirmDialogProps) => {
   const overlayRef = useRef<HTMLDivElement>(null)
+  const focusTrapRef = useFocusTrap<HTMLDivElement>(isOpen, onClose)
   const confirmButtonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (!isOpen) return
 
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-
     const handleClickOutside = (e: MouseEvent) => {
       if (e.target === overlayRef.current) onClose()
     }
 
-    // Focus confirm button when opened
-    confirmButtonRef.current?.focus()
-
-    document.addEventListener('keydown', handleEscape)
     document.addEventListener('mousedown', handleClickOutside)
-
-    return () => {
-      document.removeEventListener('keydown', handleEscape)
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isOpen, onClose])
 
   if (!isOpen) return null
@@ -63,7 +53,7 @@ const ConfirmDialog = ({
       aria-describedby="confirm-dialog-message"
     >
       <div className="overlay-backdrop" />
-      <div className="send-panel max-w-sm">
+      <div ref={focusTrapRef} className="send-panel max-w-sm">
         <div className="panel__header">
           <h3 id="confirm-dialog-title" className="panel__title">
             {title}
