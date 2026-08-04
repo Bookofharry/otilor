@@ -3,15 +3,15 @@ import AppNavigation from './AppNavigation'
 import Topbar from './Topbar'
 
 interface AppShellProps {
-  activeNav: 'dashboard' | 'invoices' | 'builder' | 'clients' | 'settings'
+  activeNav: 'dashboard' | 'invoices' | 'builder' | 'clients' | 'settings' | 'analytics'
   isPro: boolean
-  modeLabel: string
   onTogglePro: () => void
   onGoDashboard: () => void
   onGoInvoices: () => void
   onGoCreate: () => void
   onGoClients: () => void
   onGoSettings: () => void
+  onGoAnalytics: () => void
   onLogout?: () => void
   children: ReactNode
 }
@@ -19,20 +19,20 @@ interface AppShellProps {
 export function AppShell({
   activeNav,
   isPro,
-  modeLabel,
   onTogglePro,
   onGoDashboard,
   onGoInvoices,
   onGoCreate,
   onGoClients,
   onGoSettings,
+  onGoAnalytics,
   onLogout,
   children,
 }: AppShellProps) {
   return (
     <div className="app-shell">
       {/* Topbar - always visible */}
-      <Topbar modeLabel={modeLabel} onCreate={onGoCreate} onLogout={onLogout} />
+      <Topbar onCreate={onGoCreate} onLogout={onLogout} />
 
       {/* Navigation drawer */}
       <AppNavigation
@@ -44,6 +44,7 @@ export function AppShell({
         onGoCreate={onGoCreate}
         onGoClients={onGoClients}
         onGoSettings={onGoSettings}
+        onGoAnalytics={onGoAnalytics}
         onLogout={onLogout}
       />
 

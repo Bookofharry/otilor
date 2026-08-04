@@ -8,38 +8,72 @@
 }
 
 /* ========================================
-   4. Topbar
-   ======================================== */
+    4. Topbar
+    ======================================== */
 .topbar {
   position: sticky;
   top: 0;
   z-index: 30;
-  height: var(--topbar-height);
+  height: auto;
+  min-height: 56px;
   background: var(--color-surface-elevated);
   border-bottom: 1px solid var(--color-border);
-  padding: 0 var(--space-4);
+  padding: var(--space-3) var(--space-4);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
+  gap: var(--space-3);
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
 }
 
 .topbar-title {
-  font-size: var(--text-lg);
-  font-weight: var(--font-weight-semibold);
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
-  line-height: 1.25;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
-.topbar-subtitle {
-  font-size: var(--text-xs);
-  color: var(--color-text-tertiary);
+.topbar-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-brand-50);
+  color: var(--color-brand-700);
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-semibold);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-brand-200);
+  white-space: nowrap;
 }
 
 .topbar-actions {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+@media (max-width: 420px) {
+  .topbar {
+    padding: var(--space-2) var(--space-3);
+    gap: var(--space-2);
+  }
+
+  .topbar-title {
+    font-size: 0.9375rem;
+  }
+
+  .topbar-badge {
+    font-size: 0.625rem;
+    padding: 0.125rem var(--space-1);
+  }
 }
 
 /* ========================================

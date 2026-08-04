@@ -2,6 +2,9 @@ import { useCallback, useContext, createContext } from 'react';
 
 // Analytics Event Types based on userflows.md
 export type AnalyticsEventName =
+  // Global
+  | 'dashboard_viewed'
+  | 'analytics_viewed'
   // Sprint 1 Events
   | 'create_invoice_clicked'
   | 'invoice_builder_opened'
@@ -201,6 +204,9 @@ export function useInvoiceAnalytics() {
   const { track, trackError } = useAnalytics();
 
   return {
+    trackDashboardViewed: () =>
+      track('dashboard_viewed'),
+
     trackCreateInvoice: (source: string) =>
       track('create_invoice_clicked', { source_page: source }),
 
@@ -230,6 +236,9 @@ export function useInvoiceAnalytics() {
 
     trackPdfDownload: (invoiceId: string) =>
       track('invoice_pdf_downloaded', { invoice_id: invoiceId }),
+
+    track: (eventName: AnalyticsEventName, properties?: Partial<AnalyticsEventProperties>) =>
+      track(eventName, properties),
   };
 }
 

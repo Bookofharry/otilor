@@ -2,6 +2,7 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import jwt from 'jsonwebtoken';
 import { randomBytes } from 'node:crypto';
 import { createInvoicePdfBuffer } from './pdf';
 
@@ -176,6 +177,41 @@ class AppError extends Error {
     this.details = options?.details;
   }
 }
+
+const JWT_SECRET = process.env.JWT_SECRET ?? 'otilor_dev_secret_change_me';
+const JWT_ISSUER = 'otilor';
+const JWT_AUDIENCE = 'otilor-api';
+
+interface JwtPayload {
+  sub: string;
+  email?: string;
+  role?: string;
+}
+
+interface AuthenticatedRequest extends Request {
+  user?: JwtPayload;
+}
+
+const authenticate = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+  const header = req.header('Authorization');
+  if (!header || !header.startsWith('Bearer ')) {
+    sendError(res, new AppError(401, 'UNAUTHORIZED', 'Missing Authorization header.'));
+    return;
+  }
+
+  const token = header.slice(7).trim();
+  try {
+    const payload = jwt.verify(token, JWT_SECRET, {
+      issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE,
+    }) as JwtPayload;
+
+    req.user = payload;
+    next();
+  } catch (error) {
+    sendError(res, new AppError(401, 'UNAUTHORIZED', 'Invalid or expired token.'));
+  }
+};
 
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
@@ -865,6 +901,40 @@ app.get('/healthz', (_req, res) => {
 app.get('/v1/ping', (_req, res) => {
   res.json({ success: true, message: 'pong' });
 });
+
+app.post('/v1/auth/login', express.json(), (req, res) => {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+  const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+
+  if (!email) {
+    sendError(res, new AppError(422, 'VALIDATION_ERROR', 'Request validation failed.', {
+      fieldErrors: [{ field: 'email', message: 'Email is required.' }],
+    }));
+    return;
+  }
+
+  const payload: JwtPayload = {
+    sub: email,
+    email,
+    role: 'user',
+    ...(name ? { name } : {}),
+  };
+
+  const token = jwt.sign(payload, JWT_SECRET, {
+    issuer: JWT_ISSUER,
+    audience: JWT_AUDIENCE,
+    expiresIn: '7d',
+  });
+
+  sendEnvelope(res, 200, {
+    access_token: token,
+    token_type: 'Bearer',
+    expires_in: 60 * 60 * 24 * 7,
+    user: { email, name },
+  });
+});
+
+app.use('/v1', authenticate);
 
 app.get('/v1/dashboard/summary', (_req, res) => {
   const summary = Array.from(invoices.values()).reduce(

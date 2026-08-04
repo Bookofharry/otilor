@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { statusTone, toDisplayDate, toMoney, totalAmount, withOverdueStatus } from '../app/invoiceUtils'
 import type { DashboardMetrics, Invoice } from '../app/types'
 import { useInvoiceAnalytics } from '../context/useAnalytics'
@@ -24,6 +25,10 @@ function DashboardPage({
 }: DashboardPageProps) {
   const invoiceAnalytics = useInvoiceAnalytics()
   const recentInvoices = sortedInvoices.slice(0, 5)
+
+  useEffect(() => {
+    invoiceAnalytics.trackDashboardViewed()
+  }, [invoiceAnalytics])
 
   const handleAddNew = () => {
     invoiceAnalytics.trackCreateInvoice('dashboard')

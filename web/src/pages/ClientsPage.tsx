@@ -111,32 +111,61 @@ function ClientsPage({ clients, onSelectClient, onCreateClient }: ClientsPagePro
                 )}
               </div>
             ) : (
-              <table className="clients-table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <>
+                <div className="clients-table-wrap">
+                  <table className="clients-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredClients.map((client) => (
+                        <tr key={client.id} className="client-row">
+                          <td className="client-name" data-label="Name">{client.name}</td>
+                          <td className="client-email" data-label="Email">{client.email || '-'}</td>
+                          <td className="client-actions" data-label="Action">
+                            <button
+                              className="ghost-button"
+                              type="button"
+                              onClick={() => handleSelectClient(client.id)}
+                            >
+                              Select
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="clients-mobile-list">
                   {filteredClients.map((client) => (
-                    <tr key={client.id} className="client-row">
-                      <td className="client-name">{client.name}</td>
-                      <td className="client-email">{client.email || '-'}</td>
-                      <td className="client-actions">
+                    <article key={client.id} className="client-card" onClick={() => handleSelectClient(client.id)}>
+                      <div className="client-card-header">
+                        <div>
+                          <p className="client-card-name">{client.name}</p>
+                          <p className="client-card-email">{client.email || 'No email'}</p>
+                        </div>
+                      </div>
+                      <div className="client-card-actions">
                         <button
                           className="ghost-button"
                           type="button"
-                          onClick={() => handleSelectClient(client.id)}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            handleSelectClient(client.id)
+                          }}
                         >
                           Select
                         </button>
-                      </td>
-                    </tr>
+                      </div>
+                    </article>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              </>
             )}
           </div>
         </article>

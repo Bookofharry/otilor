@@ -1,4 +1,4 @@
-type ActiveNav = 'dashboard' | 'invoices' | 'builder' | 'clients' | 'settings'
+type ActiveNav = 'dashboard' | 'invoices' | 'builder' | 'clients' | 'settings' | 'analytics'
 
 interface AppNavigationProps {
   activeNav: ActiveNav
@@ -9,6 +9,7 @@ interface AppNavigationProps {
   onGoCreate: () => void
   onGoClients: () => void
   onGoSettings: () => void
+  onGoAnalytics: () => void
   onLogout?: () => void
 }
 
@@ -21,6 +22,7 @@ function AppNavigation({
   onGoCreate,
   onGoClients,
   onGoSettings,
+  onGoAnalytics,
   onLogout,
 }: AppNavigationProps) {
   return (
@@ -66,6 +68,13 @@ function AppNavigation({
             onClick={onGoSettings}
           >
             Settings
+          </button>
+          <button
+            className={`nav-button ${activeNav === 'analytics' ? 'is-active' : ''}`}
+            type="button"
+            onClick={onGoAnalytics}
+          >
+            Analytics
           </button>
         </nav>
 
@@ -162,6 +171,17 @@ function AppNavigation({
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
           </svg>
           Settings
+        </button>
+        <button
+          type="button"
+          className={`mobile-nav-button ${activeNav === 'analytics' ? 'is-active' : ''}`}
+          onClick={onGoAnalytics}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M3 3v18h18" />
+            <path d="M7 16l4-8 4 4 6-8" />
+          </svg>
+          Analytics
         </button>
       </nav>
     </>

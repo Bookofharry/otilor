@@ -10,24 +10,29 @@ import {
   timestampNow,
   toInvoicePayload,
   today,
+  totalAmount,
   withOverdueStatus,
 } from './invoiceUtils'
 import { extractErrorMessage, fromApiInvoice } from './transformers'
 import type { BuilderForm, Invoice } from './types'
 import { AppShell } from '../layout/AppShell'
 import Toast from '../components/Toast'
+import ConfirmDialog from '../components/ui/ConfirmDialog'
 import UpgradeModal from '../modules/billing/components/UpgradeModal'
 import SendPanel from '../modules/invoices/components/SendPanel'
-import BuilderPage from '../pages/BuilderPage'
 import ClientsPage from '../pages/ClientsPage'
 import DashboardPage from '../pages/DashboardPage'
 import DetailPage from '../pages/DetailPage'
 import InvoicesPage from '../pages/InvoicesPage'
 import SettingsPage from '../pages/SettingsPage'
+import AnalyticsPage from '../pages/AnalyticsPage'
+import ResponsiveBuilder from '../pages/ResponsiveBuilder'
 import { useApp } from '../context'
+import { useInvoiceAnalytics, useSendAnalytics, useUpgradeAnalytics } from '../context/useAnalytics'
 import { saveBlobAsFile, savePdfResult } from './invoiceDownload'
 import { openInvoicePrintWindow } from './invoicePrint'
 import { clearStoredAuthUserProfile } from './userProfile'
+import { setApiToken } from '../api'
 
 // Helper to generate a preview Invoice from BuilderForm
 function toPreviewInvoice(form: BuilderForm, invoiceNumber: string): Invoice {
@@ -55,7 +60,7 @@ function toPreviewInvoice(form: BuilderForm, invoiceNumber: string): Invoice {
   }
 }
 
-type ActiveNav = 'dashboard' | 'invoices' | 'builder' | 'clients' | 'settings'
+type ActiveNav = 'dashboard' | 'invoices' | 'builder' | 'clients' | 'settings' | 'analytics'
 
 interface DetailRouteProps {
   onCreateInvoice: () => void
@@ -193,6 +198,12 @@ function AppWorkspace() {
     invoices,
     refreshFromApi,
   } = useApp()
+
+  const invoiceAnalytics = useInvoiceAnalytics()
+  const sendAnalytics = useSendAnalytics()
+  const upgradeAnalytics = useUpgradeAnalytics()
+
+  const [voidConfirm, setVoidConfirm] = useState<{ open: boolean; invoiceId: string } | null>(null)
   
   const { metrics, draftCount } = dashboard
   const { builder: builderForm, builderError, editingInvoiceId, patchBuilder, resetBuilder, loadInvoiceForEdit, addItem, updateItem, removeItem, setError } = builder
@@ -393,6 +404,9 @@ function AppWorkspace() {
     if (location.pathname === '/settings') {
       return 'settings'
     }
+    if (location.pathname === '/analytics') {
+      return 'analytics'
+    }
     if (location.pathname === '/invoices' || /\/invoices\/[^/]+$/.test(location.pathname)) {
       return 'invoices'
     }
@@ -582,6 +596,7 @@ function AppWorkspace() {
         navigate(`/invoices/${encodeURIComponent(created.id)}`)
       }
     } catch (error) {
+      invoiceAnalytics.trackSaveFailed(error as Error, editingInvoiceId || undefined)
       setError(extractErrorMessage(error))
     } finally {
       setActionBusy(false)
@@ -599,12 +614,14 @@ function AppWorkspace() {
       if (mode === 'fallback') {
         markAsSent(invoice.id)
         pushToast('success', 'Invoice marked as sent.')
+        invoiceAnalytics.trackMarkSentSuccess(invoice.id)
         return
       }
 
       await api.markInvoiceSent(invoice.id, { sent_date: today() })
       await refreshFromApi()
       pushToast('success', 'Invoice marked as sent.')
+      invoiceAnalytics.trackMarkSentSuccess(invoice.id)
     } catch (error) {
       pushToast('error', extractErrorMessage(error))
     } finally {
@@ -621,11 +638,14 @@ function AppWorkspace() {
       return
     }
 
+    const amount = totalAmount(invoice.items, invoice.taxRate, invoice.discountRate)
+
     setActionBusy(true)
     try {
       if (mode === 'fallback') {
         markAsPaid(invoice.id)
         pushToast('success', 'Payment recorded.')
+        invoiceAnalytics.trackMarkPaidSuccess(invoice.id, amount)
         return
       }
 
@@ -635,6 +655,7 @@ function AppWorkspace() {
       })
       await refreshFromApi()
       pushToast('success', 'Payment recorded.')
+      invoiceAnalytics.trackMarkPaidSuccess(invoice.id, amount)
     } catch (error) {
       pushToast('error', extractErrorMessage(error))
     } finally {
@@ -645,8 +666,16 @@ function AppWorkspace() {
   const voidInvoice = async (sourceInvoice: Invoice) => {
     const invoice = sortedInvoices.find((entry) => entry.id === sourceInvoice.id) ?? sourceInvoice
     if (withOverdueStatus(invoice) === 'Void') return
-    if (!window.confirm('Void this invoice? This action is irreversible in v1.')) return
 
+    setVoidConfirm({ open: true, invoiceId: invoice.id })
+  }
+
+  const confirmVoid = useCallback(async () => {
+    if (!voidConfirm?.invoiceId) return
+    const invoice = sortedInvoices.find((entry) => entry.id === voidConfirm.invoiceId)
+    if (!invoice) return
+
+    setVoidConfirm(null)
     setActionBusy(true)
     try {
       if (mode === 'fallback') {
@@ -663,17 +692,18 @@ function AppWorkspace() {
     } finally {
       setActionBusy(false)
     }
-  }
+  }, [mode, refreshFromApi, sortedInvoices, voidConfirm])
 
   const requestSend = useCallback(
     (invoice: Invoice) => {
+      sendAnalytics.trackSendClicked(invoice.id)
       if (!isPro) {
         openUpgradeModal(invoice.id)
         return
       }
       openSendPanel(invoice)
     },
-    [isPro, openUpgradeModal, openSendPanel],
+    [isPro, openUpgradeModal, openSendPanel, sendAnalytics],
   )
 
   const submitSend = async () => {
@@ -688,6 +718,8 @@ function AppWorkspace() {
       return
     }
 
+    sendAnalytics.trackSendAttempted(invoice.id, sendForm.to.trim())
+
     setSendBusyState(true)
     setSendError(null)
     try {
@@ -695,6 +727,7 @@ function AppWorkspace() {
         recordSend(invoice.id)
         pushToast('success', `Invoice sent to ${sendForm.to.trim()}.`)
         closeSendPanel()
+        sendAnalytics.trackSendSuccess(invoice.id, sendForm.to.trim())
         return
       }
 
@@ -708,7 +741,9 @@ function AppWorkspace() {
       await refreshFromApi()
       pushToast('success', `Invoice sent to ${sendForm.to.trim()}.`)
       closeSendPanel()
+      sendAnalytics.trackSendSuccess(invoice.id, sendForm.to.trim())
     } catch (error) {
+      sendAnalytics.trackSendFailed(error as Error, invoice.id, sendForm.to.trim())
       setSendError(extractErrorMessage(error))
     } finally {
       setSendBusyState(false)
@@ -746,6 +781,7 @@ function AppWorkspace() {
 
   const handleLogout = useCallback(() => {
     clearStoredAuthUserProfile()
+    setApiToken('')
     navigate('/')
   }, [navigate])
 
@@ -774,13 +810,13 @@ function AppWorkspace() {
       <AppShell
         activeNav={activeNav}
         isPro={isPro}
-        modeLabel={`API mode: ${mode === 'connected' ? 'Connected' : 'Fallback'} (${API_BASE_URL})`}
         onTogglePro={() => setIsPro(!isPro)}
         onGoDashboard={() => navigate('/dashboard')}
         onGoInvoices={openInvoicesList}
         onGoCreate={openCreateInvoice}
         onGoClients={() => navigate('/clients')}
         onGoSettings={() => navigate('/settings')}
+        onGoAnalytics={() => navigate('/analytics')}
         onLogout={handleLogout}
       >
         {apiBanner && (
@@ -846,10 +882,11 @@ function AppWorkspace() {
             }
           />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/analytics" element={<AnalyticsPage invoices={sortedInvoices} />} />
           <Route
             path="/invoices/new"
             element={
-              <BuilderPage
+              <ResponsiveBuilder
                 editingInvoiceId={editingInvoiceId}
                 editNotice={editNotice}
                 builder={builderForm}
@@ -870,7 +907,7 @@ function AppWorkspace() {
           <Route
             path="/invoices/:invoiceId/edit"
             element={
-              <BuilderPage
+              <ResponsiveBuilder
                 editingInvoiceId={editingInvoiceId}
                 editNotice={editNotice}
                 builder={builderForm}
@@ -923,9 +960,11 @@ function AppWorkspace() {
       />
 
       <UpgradeModal
+        source="request_send"
         visible={showUpgradeModal}
         onClose={closeUpgradeModal}
         onUpgrade={() => {
+          upgradeAnalytics.trackUpgradeCompleted('monthly', 999)
           setIsPro(true)
           closeUpgradeModal()
 
@@ -935,6 +974,16 @@ function AppWorkspace() {
             openSendPanel(invoice)
           }
         }}
+      />
+
+      <ConfirmDialog
+        isOpen={!!voidConfirm?.open}
+        onClose={() => setVoidConfirm(null)}
+        onConfirm={confirmVoid}
+        title="Void Invoice"
+        message="Voiding this invoice is irreversible in v1. Are you sure?"
+        confirmLabel="Void"
+        variant="danger"
       />
 
       <Toast toast={toast.toast} />

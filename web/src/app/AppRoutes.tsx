@@ -1,4 +1,5 @@
 import { Route, Routes, useNavigate } from 'react-router-dom'
+import { AnalyticsProvider } from '../context/AnalyticsProvider'
 import { AppProvider } from '../context'
 import ForgotPasswordPage from '../pages/ForgotPasswordPage'
 import LandingPage from '../pages/LandingPage'
@@ -89,9 +90,11 @@ function AppRoutes() {
       <Route
         path="/*"
         element={
-          <AppProvider>
-            <AppWorkspace />
-          </AppProvider>
+          <AnalyticsProvider>
+            <AppProvider>
+              <AppWorkspace />
+            </AppProvider>
+          </AnalyticsProvider>
         }
       />
     </Routes>

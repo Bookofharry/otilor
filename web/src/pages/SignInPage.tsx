@@ -1,7 +1,8 @@
 import { useState } from 'react'
+import { setApiToken } from '../api'
 
 interface SignInPageProps {
-  onSignIn: (email: string, password: string) => void
+  onSignIn: (email: string) => void
   onNavigateToSignUp: () => void
   onNavigateToForgotPassword: () => void
   onNavigateToLanding: () => void
@@ -37,11 +38,31 @@ function SignInPage({
     
     setIsLoading(true)
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    onSignIn(email, password)
-    setIsLoading(false)
+    try {
+      const response = await fetch('http://localhost:4000/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+
+      if (!response.ok) {
+        setError('Sign in failed. Please try again.')
+        setIsLoading(false)
+        return
+      }
+
+      const data = await response.json()
+      const token = data.data?.access_token
+      if (token) {
+        setApiToken(token)
+      }
+
+      onSignIn(email)
+    } catch (err) {
+      setError('Network error. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (

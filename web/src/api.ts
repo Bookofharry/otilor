@@ -152,7 +152,16 @@ export interface PaginatedResult<T> {
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000'
-const API_TOKEN = import.meta.env.VITE_API_TOKEN ?? ''
+let API_TOKEN = (import.meta.env.VITE_API_TOKEN as string | undefined) ?? localStorage.getItem('otilor_api_token') ?? ''
+
+export const setApiToken = (token: string) => {
+  API_TOKEN = token
+  if (token) {
+    localStorage.setItem('otilor_api_token', token)
+  } else {
+    localStorage.removeItem('otilor_api_token')
+  }
+}
 
 const createHeaders = (extra?: Record<string, string>): Headers => {
   const headers = new Headers({
